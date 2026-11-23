@@ -1,4 +1,5 @@
 
+
 name: Build Android APK
 
 on:
@@ -24,14 +25,16 @@ jobs:
           java-version: '21'
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools'
 
       - name: Extract MediReminder project
         run: |
           mkdir -p extracted app
 
           if [ ! -f MediReminder-Android-app.zip ]; then
-            echo "ERROR: ZIP file not found in repository root"
+            echo "ZIP file not found"
             exit 1
           fi
 
@@ -40,7 +43,7 @@ jobs:
           PACKAGE_JSON=$(find extracted -type f -name package.json -print -quit)
 
           if [ -z "$PACKAGE_JSON" ]; then
-            echo "ERROR: package.json not found"
+            echo "package.json not found"
             exit 1
           fi
 
@@ -48,7 +51,7 @@ jobs:
           cp -a "$PROJECT_DIR/." app/
 
           if [ ! -f app/www/index.html ]; then
-            echo "ERROR: www/index.html is missing"
+            echo "www/index.html is missing"
             exit 1
           fi
 
