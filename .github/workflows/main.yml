@@ -1,3 +1,4 @@
+
 name: Build Android APK
 
 on:
@@ -14,35 +15,40 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'
 
-      -       - name: Set up Android SDK
+      - name: Set up Android SDK
         uses: android-actions/setup-android@v3
-        with:
-          packages: 'platform-tools platforms;android-35 build-tools;35.0'
 
       - name: Extract MediReminder project
         run: |
           mkdir -p extracted app
-          unzip -q MediReminder-Android-app.zip -d extracted
 
-          PROJECT_DIR=$(find extracted -name package.json -type f -print -quit | xargs dirname)
-
-          if [ -z "$PROJECT_DIR" ]; then
-            echo "package.json not found in ZIP"
+          if [ ! -f MediReminder-Android-app.zip ]; then
+            echo "ERROR: ZIP file not found in repository root"
             exit 1
           fi
 
+          unzip -q MediReminder-Android-app.zip -d extracted
+
+          PACKAGE_JSON=$(find extracted -type f -name package.json -print -quit)
+
+          if [ -z "$PACKAGE_JSON" ]; then
+            echo "ERROR: package.json not found"
+            exit 1
+          fi
+
+          PROJECT_DIR=$(dirname "$PACKAGE_JSON")
           cp -a "$PROJECT_DIR/." app/
 
           if [ ! -f app/www/index.html ]; then
-            echo "www/index.html is missing"
+            echo "ERROR: www/index.html is missing"
             exit 1
           fi
 
@@ -50,19 +56,31 @@ jobs:
         working-directory: app
         run: |
           npm install
-          npm install @capacitor/core @capacitor/cli @capacitor/android
+          npm install @capacitor/core@^8 @capacitor/cli@^8 @capacitor/android@^8
+
+      - name: Configure Capacitor
+        working-directory: app
+        run: |
+          if [ ! -f capacitor.config.ts ] && \
+             [ ! -f capacitor.config.json ] && \
+             [ ! -f capacitor.config.js ]; then
+            npx cap init "MediReminder" "com.rebalstar.medireminder" --web-dir www
+          fi
 
       - name: Create Android project
         working-directory: app
         run: |
-          npx cap add android
+          if [ ! -d android ]; then
+            npx cap add android
+          fi
+
           npx cap sync android
 
-      - name: Build APK
+      - name: Build Android APK
         working-directory: app/android
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug
+          ./gradlew --no-daemon assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
@@ -70,4 +88,3 @@ jobs:
           name: MediReminder-apk
           path: app/android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
-      
