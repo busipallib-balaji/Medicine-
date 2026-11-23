@@ -22,15 +22,43 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Wrap HTML into Android APK
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Extract MediReminder project
         run: |
-          mkdir www
-          cp *.html *.css *.js www/ 2>/dev/null || true
-          npm init -y
+          mkdir -p extracted app
+          unzip -q MediReminder-Android-app.zip -d extracted
+
+          PROJECT_DIR=$(find extracted -name package.json -type f -print -quit | xargs dirname)
+
+          if [ -z "$PROJECT_DIR" ]; then
+            echo "package.json not found in ZIP"
+            exit 1
+          fi
+
+          cp -a "$PROJECT_DIR/." app/
+
+          if [ ! -f app/www/index.html ]; then
+            echo "www/index.html is missing"
+            exit 1
+          fi
+
+      - name: Install dependencies
+        working-directory: app
+        run: |
+          npm install
           npm install @capacitor/core @capacitor/cli @capacitor/android
-          npx cap init "MediReminder" "com.busipallib.medireminder" --web-dir www
+
+      - name: Create Android project
+        working-directory: app
+        run: |
           npx cap add android
-          cd android
+          npx cap sync android
+
+      - name: Build APK
+        working-directory: app/android
+        run: |
           chmod +x gradlew
           ./gradlew assembleDebug
 
@@ -38,5 +66,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: MediReminder-apk
-          path: "android/app/build/outputs/apk/debug/*.apk"
+          path: app/android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+      
