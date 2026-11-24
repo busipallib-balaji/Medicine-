@@ -1,8 +1,5 @@
 
-
-
-
-name: Build MediReminder AAB
+name: MediReminder APK
 
 on:
   workflow_dispatch:
@@ -15,82 +12,34 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Set up Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '21'
-
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v4
-        with:
-          packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
-
-      - name: Extract MediReminder project
+      - name: Check ZIP file
         run: |
-          mkdir -p extracted app
-
-          if [ ! -f MediReminder-Android-app.zip ]; then
-            echo "ZIP file not found"
+          if [ ! -f MediReminder-apk.zip ]; then
+            echo "ERROR: MediReminder-apk.zip not found"
             exit 1
           fi
 
-          unzip -q MediReminder-Android-app.zip -d extracted
+      - name: Extract APK
+        run: |
+          mkdir -p extracted output
 
-          PACKAGE_JSON=$(find extracted -type f -name package.json -print -quit)
+          unzip -q MediReminder-apk.zip -d extracted
 
-          if [ -z "$PACKAGE_JSON" ]; then
-            echo "package.json not found"
+          APK_FILE=$(find extracted -type f -name "*.apk" -print -quit)
+
+          if [ -z "$APK_FILE" ]; then
+            echo "ERROR: No APK found inside ZIP"
             exit 1
           fi
 
-          PROJECT_DIR=$(dirname "$PACKAGE_JSON")
-          cp -a "$PROJECT_DIR/." app/
+          cp "$APK_FILE" output/MediReminder.apk
 
-          if [ ! -f app/www/index.html ]; then
-            echo "www/index.html is missing"
-            exit 1
-          fi
+          echo "APK extracted successfully"
 
-      - name: Install dependencies
-        working-directory: app
-        run: |
-          npm install
-          npm install @capacitor/core@^8 @capacitor/cli@^8 @capacitor/android@^8
-
-      - name: Configure Capacitor
-        working-directory: app
-        run: |
-          if [ ! -f capacitor.config.ts ] && \
-             [ ! -f capacitor.config.json ] && \
-             [ ! -f capacitor.config.js ]; then
-            npx cap init "MediReminder" "com.rebalstar.medireminder" --web-dir www
-          fi
-
-      - name: Create Android project
-        working-directory: app
-        run: |
-          if [ ! -d android ]; then
-            npx cap add android
-          fi
-
-          npx cap sync android
-
-      - name: Build Android AAB
-        working-directory: app/android
-        run: |
-          chmod +x gradlew
-          ./gradlew --no-daemon bundleRelease
-
-      - name: Upload AAB
+      - name: Upload MediReminder APK
         uses: actions/upload-artifact@v4
         with:
-          name: MediReminder-AAB
-          path: app/android/app/build/outputs/bundle/release/app-release.aab
+          name: MediReminder-APK
+          path: output/MediReminder.apk
           if-no-files-found: error
-      
+          retention-days: 30
