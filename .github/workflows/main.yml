@@ -1,5 +1,5 @@
 
-name: MediReminder APK
+name: MediReminder Android APK v5.0
 
 on:
   workflow_dispatch:
@@ -12,40 +12,60 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
       - name: Check ZIP file
         run: |
-          ZIP_FILE="MediReminder-Android-app-v5.0.zip"
+          test -f MediReminder-Android-app-v5.0.zip
 
-          if [ ! -f "$ZIP_FILE" ]; then
-            echo "ERROR: ZIP file not found"
-            exit 1
-          fi
-
-      - name: Extract APK
+      - name: Extract MediReminder project
         run: |
-          mkdir -p extracted output
+          mkdir -p project
+          unzip -q MediReminder-Android-app-v5.0.zip -d project
 
-          unzip -q MediReminder-Android-app-v5.0.zip -d extracted
+          test -f project/package.json
+          test -f project/capacitor.config.json
+          test -f project/scripts/patch-android.py
 
-          echo "Files found inside ZIP:"
-          find extracted -type f
+      - name: Install dependencies
+        working-directory: project
+        run: npm install
 
-          APK_FILE=$(find extracted -type f -iname "*.apk" -print -quit)
+      - name: Generate Android project
+        working-directory: project
+        run: npx cap add android
 
-          if [ -z "$APK_FILE" ]; then
-            echo "ERROR: No APK found inside ZIP"
-            echo "Please check the ZIP contents."
-            exit 1
-          fi
+      - name: Generate Android icons
+        working-directory: project
+        run: npx capacitor-assets generate --android
 
-          cp "$APK_FILE" output/MediReminder.apk
+      - name: Sync Capacitor
+        working-directory: project
+        run: npx cap sync android
 
-          echo "APK extracted successfully"
+      - name: Install native alarm functionality
+        working-directory: project
+        run: python3 scripts/patch-android.py
+
+      - name: Build MediReminder APK
+        working-directory: project/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug
 
       - name: Upload MediReminder APK
         uses: actions/upload-artifact@v4
         with:
           name: MediReminder-APK-v5.0
-          path: output/MediReminder.apk
+          path: project/android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
