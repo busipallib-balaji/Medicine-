@@ -1,5 +1,4 @@
 
-
 name: MediReminder APK
 
 on:
@@ -15,8 +14,10 @@ jobs:
 
       - name: Check ZIP file
         run: |
-          if [ ! -f MediReminder-Android-app-v5.0.zip ]; then
-            echo "ERROR: MediReminder-Android-app-v5.0.zip not found"
+          ZIP_FILE="MediReminder-Android-app-v5.0.zip"
+
+          if [ ! -f "$ZIP_FILE" ]; then
+            echo "ERROR: ZIP file not found"
             exit 1
           fi
 
@@ -26,10 +27,14 @@ jobs:
 
           unzip -q MediReminder-Android-app-v5.0.zip -d extracted
 
-          APK_FILE=$(find extracted -type f -name "*.apk" -print -quit)
+          echo "Files found inside ZIP:"
+          find extracted -type f
+
+          APK_FILE=$(find extracted -type f -iname "*.apk" -print -quit)
 
           if [ -z "$APK_FILE" ]; then
             echo "ERROR: No APK found inside ZIP"
+            echo "Please check the ZIP contents."
             exit 1
           fi
 
